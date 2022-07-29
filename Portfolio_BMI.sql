@@ -85,3 +85,12 @@ WHERE m.[Mean BMI (male)] IS NOT NULL and f.[Year] >1978 and pl.[Year]>1978
 SELECT *
 FROM PortfolioBMI.dbo.Joined_BMI
 WHERE  [Population] Is NULL
+
+CREATE VIEW Food_GDP_BMI AS
+SELECT a.*, b.[Mean BMI (female)],b.[Mean BMI (male)]
+FROM PortfolioBMI.[dbo].[Food_Full] a
+JOIN PortfolioBMI.[dbo].[Joined_BMI] b ON
+a.[Country]=b.[Entity] AND a.[Year]=b.[Year]
+
+
+
