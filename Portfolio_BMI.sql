@@ -97,22 +97,19 @@ a.[Country]=b.[Entity] AND a.[Year]=b.[Year]
 SELECT *
 FROM PortfolioBMI.[dbo].[Percent_death_obesity]
 
---I want to make info boxs to indicate change:
-CREATE TABLE Change_Blocks (
-Year NUMERIC,
-Country VARCHAR(255),
-Calories NUMERIC,
-GDP NUMERIC,
-)
+--Measuring the difference in GDP and Caloric intake within a 10 years period:
 
-INSERT INTO dbo.Change_blocks(Year, Country, Calories)
-select Year, Country, Daily_Calories  from Food_Full where Year=1995 or Year=2019
-
-UPDATE dbo.Change_Blocks 
-SET GDP = b.[GDP per capita, PPP (constant 2017 international $)]
-From dbo.Change_Blocks a
-JOIN PortfolioBMI.DBO.GDP b ON
-a.Year= b.Year and a.country=b.Entity
-
-select Year, Country, GDP from Change_blocks where GDP is null
-
+SELECT d.Country,d.Year, d.Total_change_in_Calories, t.Total_Change_in_GDP
+INTO Difference_tables
+FROM (
+	SELECT f.*,
+	Daily_Calories- LAG (Daily_Calories, 10,0) OVER(PARTITION BY Country ORDER BY Year ASC) AS Total_change_in_Calories
+	FROM Food_Full AS f
+	WHERE f.Year>2008) AS d
+Join (
+	SELECT g.*, 
+	g.[GDP per capita, PPP (constant 2017 international $)] - LAG (g.[GDP per capita, PPP (constant 2017 international $)],10,0) OVER (PARTITION BY g.Entity ORDER BY Year ASC) AS Total_Change_in_GDP
+	FROM PortfolioBMI.dbo.GDP AS g
+	WHERE G.Year<2020 AND Year >2008) as t
+	ON d.Year=t.Year AND d.Country=t.Entity
+WHERE t.[GDP per capita, PPP (constant 2017 international $)]!=t.Total_Change_in_GDP AND d.Total_change_in_Calories!= d.Daily_Calories
