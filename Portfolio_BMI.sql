@@ -33,11 +33,12 @@ ORDER BY Year desc
 SELECT * INTO Food 
 FROM dbo.['global-food$']
 
---Dropping
+--Omiting Countries that do not have the full scale of data avaliable (Such as the USSR, which doesn't exist anymore)
 DELETE FROM Food 
 WHERE Country IN (
 SELECT Country FROM Food GROUP BY Country HAVING COUNT(Country)!=25);
 
+--Exploring more:
 SELECT *
 FROM PortfolioBMI.[dbo].[Minimum_calories]
 
@@ -46,7 +47,7 @@ FROM PortfolioBMI.[dbo].[Percent_death_obesity]
 ORDER BY Year
 
 --Aggregating and joining data:
-
+-- I wanted to join all relevant databases to answer the caloric consumption and deaths
 SELECT 
 a.Country,
 a.Year,
@@ -65,10 +66,11 @@ INNER JOIN PortfolioBMI.dbo.['death-rate-from-obesity$'] c ON
 a.[Country]=c.[Entity] AND a.[Year]=c.[Year]
 WHERE c.Year>=1995
 
---Cheking
+--Checking the results
 SELECT *, [Daily_Calories]-[Minimum_intake_Kcl] AS Extra_Intake
 FROM PortfolioBMI.[dbo].[Food_Full]
 
+-- Joining BMI Related data
 SELECT m.*,
 f.[Entity] AS Ent,
 f.[Code] AS CD,
@@ -86,20 +88,10 @@ WHERE m.[Mean BMI (male)] IS NOT NULL and f.[Year] >1978 and pl.[Year]>1978
 --Checking the data
 SELECT *
 FROM PortfolioBMI.dbo.Joined_BMI
-WHERE  [Population] Is NULL
 
-CREATE VIEW Food_GDP_BMI AS
-SELECT a.*, b.[Mean BMI (female)],b.[Mean BMI (male)]
-FROM PortfolioBMI.[dbo].[Food_Full] a
-JOIN PortfolioBMI.[dbo].[Joined_BMI] b ON
-a.[Country]=b.[Entity] AND a.[Year]=b.[Year]
 
-SELECT *
-FROM PortfolioBMI.[dbo].[Percent_death_obesity]
-
---Measuring the difference in GDP and Caloric intake within a 10 years period:
-
-SELECT d.Country,d.Year, d.Total_change_in_Calories, t.Total_Change_in_GDP
+--Measuring the difference in GDP and Caloric intake within a 10 year period:
+SELECT d.Country,d.Year, d.Total_change_in_Calories, t.Total_Change_in_GDP, b.DIF_DED
 INTO Difference_tables
 FROM (
 	SELECT f.*,
@@ -112,4 +104,24 @@ Join (
 	FROM PortfolioBMI.dbo.GDP AS g
 	WHERE G.Year<2020 AND Year >2008) as t
 	ON d.Year=t.Year AND d.Country=t.Entity
-WHERE t.[GDP per capita, PPP (constant 2017 international $)]!=t.Total_Change_in_GDP AND d.Total_change_in_Calories!= d.Daily_Calories
+JOIN(
+	SELECT a.*, a.[Percent] - LAG (a.[Percent],10,0) OVER (PARTITION BY Entity ORDER BY Year ASC) AS DIF_DED
+	FROM PortfolioBMI.dbo.Percent_death_obesity as a
+	WHERE a.Year >2008) as b
+	ON b.Entity=d.Country AND b.Year=d.Year
+WHERE t.[GDP per capita, PPP (constant 2017 international $)]!=t.Total_Change_in_GDP AND d.Total_change_in_Calories!= d.Daily_Calories AND  b.[Percent] != b.DIF_DED
+
+select * from Difference_tables
+
+Drop table Difference_tables
+-- Ranking for further exploration
+SELECT *, RANK() OVER(PARTITION BY Year ORDER BY Death_rate_Per_100K DESC) AS Death_rate_Year_Ranking
+FROM Food_Full AS f
+WHERE Year = 2019
+
+Select *
+FROM(
+SELECT a.*, a.[Percent] - LAG (a.[Percent],10,0) OVER (PARTITION BY Entity ORDER BY Year ASC) AS DIF_DED
+FROM PortfolioBMI.dbo.Percent_death_obesity as a
+WHERE a.Year >2008) as b
+Where b.[Percent] != b.DIF_DED
